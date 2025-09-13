@@ -342,7 +342,7 @@
                                     </v-row>
                                 </v-form>
                                 <v-divider class="my-6"></v-divider>
-                                <v-row justify="center">
+                                <v-row justify="center" v-if="resumos.length > 0 || registrosAbertos.length > 0">
                                     <v-btn color="finalize" class="mr-4" @click="finalizarSemanasAnteriores">Finalizar Semana</v-btn>
                                     <v-btn color="export" class="mr-4" @click="exportarDados('csv')">Exportar CSV</v-btn>
                                     <v-btn color="danger" @click="limparDados">Limpar Todos os Dados</v-btn>

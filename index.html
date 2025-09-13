@@ -337,14 +337,14 @@
                                         </v-col>
                                     </v-row>
                                     <v-row justify="center" class="mt-4">
-                                        <v-btn type="submit" color="primary" class="mr-4">Registrar Ponto</v-btn>
-                                        <v-btn color="absence" @click="registrarFalta">Registrar Falta</v-btn>
+                                    <v-btn type="submit" color="primary" class="ma-3 ma-md-0">Registrar Ponto</v-btn>
+                                    <v-btn color="absence" @click="registrarFalta" class="ma-3 ma-md-0">Registrar Falta</v-btn>
                                     </v-row>
                                 </v-form>
                                 <v-divider class="my-6"></v-divider>
                                 <v-row justify="center" v-if="resumos.length > 0 || registrosAbertos.length > 0">
                                     <v-btn color="finalize" class="mr-4" @click="finalizarSemanasAnteriores">Finalizar Semana</v-btn>
-                                    <v-btn color="export" class="mr-4" @click="exportarDados('csv')">Exportar CSV</v-btn>
+                                    <v-btn color="export" class="mr-4 my-2" @click="exportarDados('csv')">Exportar CSV</v-btn>
                                     <v-btn color="danger" @click="limparDados">Limpar Todos os Dados</v-btn>
                                 </v-row>
                                 <div v-if="resumos.length > 0" class="mt-6">

@@ -256,7 +256,47 @@
             return `<table><thead><tr><th>Data</th><th>Início</th><th>Saída Int.</th><th>Volta Int.</th><th>Fim</th><th>Total Trabalhado</th><th>Saldo Dia</th></tr></thead><tbody>${rows}</tbody></table>`;
         };
 
-        function exportarDados(formato) { /* Código de exportação sem alterações */ }
+    function exportarDados(formato) {
+        const registros = getRegistros();
+        if (registros.length === 0) {
+            alert('Não há dados para exportar.');
+            return;
+        }
+
+        let conteudo, mimeType, nomeArquivo;
+        const dataExportacao = new Date().toISOString().slice(0, 10); // Formato YYYY-MM-DD
+
+        if (formato === 'csv') {
+            const cabecalho = ['Data', 'Tipo', 'Inicio', 'Saida_Intervalo', 'Volta_Intervalo', 'Fim', 'Total_Trabalhado_HHMM', 'Saldo_Dia_HHMM', 'Finalizado'];
+            
+            const linhas = registros.map(r => {
+                const linha = r.type === 'falta' 
+                    ? [formatDate(r.data), r.type, '--', '--', '--', '--', r.totalTrabalhado, r.saldoDia, r.finalizado]
+                    : [formatDate(r.data), r.type, r.inicio, r.saidaIntervalo, r.voltaIntervalo, r.fim, r.totalTrabalhado, r.saldoDia, r.finalizado];
+                return linha.join(',');
+            }).join('\n');
+            
+            conteudo = [cabecalho.join(','), linhas].join('\n');
+            mimeType = 'text/csv;charset=utf-8;';
+            nomeArquivo = `relatorio_ponto_${dataExportacao}.csv`;
+
+        } else { // JSON (Backup completo)
+            conteudo = JSON.stringify({ resumos: getResumos(), registros: getRegistros() }, null, 2);
+            mimeType = 'application/json;charset=utf-8;';
+            nomeArquivo = `backup_ponto_${dataExportacao}.json`;
+        }
+
+        // Lógica para acionar o download (já deve existir no seu código, mas garantindo)
+        const blob = new Blob([conteudo], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nomeArquivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
         function limparDados() { if (confirm('Tem certeza que deseja apagar TODOS os registros e resumos?')) { localStorage.removeItem(KEY_REGISTROS); localStorage.removeItem(KEY_RESUMOS); alert('Todos os dados foram apagados.'); atualizarTudo(); } }
         const atualizarTudo = () => { atualizarSaldoTotal(); atualizarHorasSemanais(); gerarRelatorio(); };
         pontoForm.addEventListener('submit', registrarPonto);

@@ -21,7 +21,7 @@
 
         const vuetify = createVuetify({
             theme: {
-                defaultTheme: 'light',
+                defaultTheme: localStorage.getItem('theme') || 'light',
                 themes: {
                     light: {
                         colors: {
@@ -38,6 +38,22 @@
                             background: '#f4f7f6',
                             surface: '#ffffff',
                         }
+                    },
+                    dark: {
+                        colors: {
+                            primary: '#80b7ff',
+                            secondary: '#2c2f33',
+                            text: '#e0e0e0',
+                            border: '#444',
+                            success: '#4caf50',
+                            danger: '#ef5350',
+                            neutral: '#9e9e9e',
+                            export: '#9575cd',
+                            finalize: '#ff9800',
+                            absence: '#ffb300',
+                            background: '#1e1e1e',
+                            surface: '#2c2f33',
+                        }
                     }
                 }
             }
@@ -51,6 +67,7 @@
                     META_SEMANAL_MINUTOS: 44 * 60,
                     KEY_REGISTROS: 'registrosDePonto',
                     KEY_RESUMOS: 'resumosSemanais',
+                    isDarkTheme: localStorage.getItem('theme') === 'dark',
 
                     // Form data
                     data: new Date().toISOString().slice(0, 10),
@@ -289,19 +306,28 @@
                     return saldoMinutos >= 0 ? 'text-success' : 'text-danger';
                 },
                 getRowClass(r) {
-                    if (r.type === 'falta') return { backgroundColor: '#fff3cd', color: '#664d03' };
+                    if (r.type === 'falta') return { backgroundColor: this.isDarkTheme ? '#4b3b1a' : '#fff3cd', color: this.isDarkTheme ? '#fff' : '#664d03' };
                     return {};
+                },
+                toggleTheme() {
+                    this.isDarkTheme = !this.isDarkTheme;
+                    this.$vuetify.theme.global.name = this.isDarkTheme ? 'dark' : 'light';
+                    localStorage.setItem('theme', this.isDarkTheme ? 'dark' : 'light');
                 },
             },
             mounted() {
                 this.loadData();
+                this.$vuetify.theme.global.name = this.isDarkTheme ? 'dark' : 'light';
             },
             template: `
                 <v-app>
                     <v-main class="bg-background">
                         <v-container class="pa-8" style="max-width: 800px;">
                             <v-card elevation="4" class="pa-6">
-                                <h1 class="text-center text-primary mb-2">Controle de Ponto</h1>
+                                <v-row align="center" justify="space-between" class="mb-2">
+                                    <h1 class="text-center text-primary flex-grow-1">Controle de Ponto</h1>
+                                    <v-btn :icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-moon-waxing-crescent'" @click="toggleTheme" class="ml-2"></v-btn>
+                                </v-row>
                                 <v-row class="mb-6">
                                     <v-col cols="12" md="6">
                                         <v-card variant="outlined" class="pa-4 text-center">
@@ -338,15 +364,15 @@
                                         </v-col>
                                     </v-row>
                                     <v-row justify="center" class="mt-4">
-                                    <v-btn type="submit" color="primary" class="ma-3 ma-md-0 mr-md-2">Registrar Ponto</v-btn>
-                                    <v-btn color="absence" @click="registrarFalta" class="ma-3 ma-md-0">Registrar Falta</v-btn>
+                                        <v-btn type="submit" color="primary" class="ma-3 ma-md-0 mr-md-2">Registrar Ponto</v-btn>
+                                        <v-btn color="absence" @click="registrarFalta" class="ma-3 ma-md-0">Registrar Falta</v-btn>
                                     </v-row>
                                 </v-form>
                                 <v-divider class="my-6"></v-divider>
                                 <v-row justify="center" v-if="resumos.length > 0 || registrosAbertos.length > 0">
-                                    <v-btn color="finalize" class="" @click="finalizarSemanasAnteriores">Finalizar Semana</v-btn>
-                                    <v-btn color="export" class="ma-3 my-md-0 ma-md-0 mx-md-2" @click="exportarDados('csv')">Exportar CSV</v-btn>
-                                    <v-btn color="danger" @click="limparDados">Limpar Todos os Dados</v-btn>
+                                    <v-btn color="finalize" class="ma-3 ma-md-0 mr-md-2" @click="finalizarSemanasAnteriores">Finalizar Semana</v-btn>
+                                    <v-btn color="export" class="ma-3 ma-md-0 mr-md-2" @click="exportarDados('csv')">Exportar CSV</v-btn>
+                                    <v-btn color="danger" class="ma-3 ma-md-0" @click="limparDados">Limpar Todos os Dados</v-btn>
                                 </v-row>
                                 <div v-if="resumos.length > 0" class="mt-6">
                                     <h2 class="text-h5 text-center">Resumos Semanais</h2>

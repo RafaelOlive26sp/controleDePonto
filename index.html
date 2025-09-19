@@ -1,18 +1,18 @@
 <!DOCTYPE html>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Ponto e Banco de Horas</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>">
-    <!-- Vuetify CSS -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w2.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>">
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.css" rel="stylesheet">
 </head>
 <body>
     <div id="app"></div>
 
-    <!-- Vue and Vuetify JS -->
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@3/dist/vuetify.min.js"></script>
     <script>
@@ -23,38 +23,8 @@
             theme: {
                 defaultTheme: localStorage.getItem('theme') || 'light',
                 themes: {
-                    light: {
-                        colors: {
-                            primary: '#4a90e2',
-                            secondary: '#f4f7f6',
-                            text: '#333',
-                            border: '#ddd',
-                            success: '#28a745',
-                            danger: '#dc3545',
-                            neutral: '#6c757d',
-                            export: '#6f42c1',
-                            finalize: '#fd7e14',
-                            absence: '#ffc107',
-                            background: '#f4f7f6',
-                            surface: '#ffffff',
-                        }
-                    },
-                    dark: {
-                        colors: {
-                            primary: '#80b7ff',
-                            secondary: '#2c2f33',
-                            text: '#e0e0e0',
-                            border: '#444',
-                            success: '#4caf50',
-                            danger: '#ef5350',
-                            neutral: '#9e9e9e',
-                            export: '#9575cd',
-                            finalize: '#ff9800',
-                            absence: '#ffb300',
-                            background: '#1e1e1e',
-                            surface: '#2c2f33',
-                        }
-                    }
+                    light: { colors: { primary: '#4a90e2', secondary: '#f4f7f6', text: '#333', border: '#ddd', success: '#28a745', danger: '#dc3545', neutral: '#6c757d', export: '#6f42c1', finalize: '#fd7e14', absence: '#ffc107', background: '#f4f7f6', surface: '#ffffff' } },
+                    dark: { colors: { primary: '#80b7ff', secondary: '#2c2f33', text: '#e0e0e0', border: '#444', success: '#4caf50', danger: '#ef5350', neutral: '#9e9e9e', export: '#9575cd', finalize: '#ff9800', absence: '#ffb300', background: '#1e1e1e', surface: '#2c2f33' } }
                 }
             }
         });
@@ -62,26 +32,50 @@
         const app = createApp({
             data() {
                 return {
-                    // Configurações
-                    JORNADA_CONTRATUAL_MINUTOS: (7 * 60) + 20, // 7h20m
-                    META_SEMANAL_MINUTOS: 44 * 60,
+                    showConfigModal: false,
+                    showDonationModal: false,
+                    isInitialConfig: false,
+                    config: { horasSemanais: 44, horasDiarias: '08:48', diasTrabalhados: 5 },
+                    tempConfig: { horasSemanais: 44, horasDiarias: '08:48', diasTrabalhados: 5 },
+                    KEY_CONFIG: 'userConfig',
                     KEY_REGISTROS: 'registrosDePonto',
                     KEY_RESUMOS: 'resumosSemanais',
                     isDarkTheme: localStorage.getItem('theme') === 'dark',
-
-                    // Form data
                     data: new Date().toISOString().slice(0, 10),
                     inicio: '07:00',
                     saidaIntervalo: '',
                     voltaIntervalo: '',
                     fim: '17:00',
-
-                    // Dados
                     registros: [],
                     resumos: [],
+                    pixEmail: 'muhellserver@hotmail.com',
                 };
             },
             computed: {
+                jornadaContratualMinutos() { return this.timeToMins(this.config.horasDiarias); },
+                metaSemanalMinutos() { return this.config.horasSemanais * 60; },
+                metaSemanalFormatada() { return `${String(this.config.horasSemanais).padStart(2, '0')}:00`; },
+                
+                isFinalizarSemanaDisabled() {
+                    const weekIdAtual = this.getWeekId(new Date());
+                    const registrosAbertos = this.registros.filter(r => !r.finalizado);
+
+                    const semanasAbertas = registrosAbertos.reduce((acc, r) => {
+                        const weekId = this.getWeekId(this.dateFromString(r.data));
+                        if (!acc[weekId]) { acc[weekId] = []; }
+                        acc[weekId].push(r);
+                        return acc;
+                    }, {});
+
+                    // Verifica se há alguma semana (incluindo a atual se tiver os dias necessários) que pode ser finalizada
+                    for (const weekId in semanasAbertas) {
+                        if (semanasAbertas[weekId].length >= this.config.diasTrabalhados) {
+                            return false; // Há pelo menos uma semana que pode ser finalizada
+                        }
+                    }
+                    return true; // Nenhuma semana tem dias suficientes para finalizar
+                },
+
                 saldoTotal() {
                     const saldoRegistros = this.registros.reduce((acc, r) => acc + r.saldoDiaMinutos, 0);
                     return this.minsToTime(saldoRegistros);
@@ -95,16 +89,42 @@
                 horasNaSemana() {
                     const inicioSemanaAtual = this.getInicioDaSemana(new Date());
                     const registros = this.registros.filter(r => !r.finalizado);
-                    const daSemana = registros.filter(r => new Date(r.data + 'T00:00:00') >= inicioSemanaAtual);
+                    // CORREÇÃO APLICADA AQUI
+                    const daSemana = registros.filter(r => this.dateFromString(r.data) >= inicioSemanaAtual);
                     const totalMinutos = daSemana.reduce((acc, r) => acc + r.totalMinutosTrabalhados, 0);
                     return this.minsToTime(totalMinutos);
                 },
                 registrosAbertos() {
-                    return this.registros.filter(r => !r.finalizado);
+                    // CORREÇÃO APLICADA AQUI
+                    return this.registros.filter(r => !r.finalizado).sort((a,b) => this.dateFromString(b.data) - this.dateFromString(a.data));
                 },
             },
             methods: {
-                // Funções Helper
+                // NOVA FUNÇÃO HELPER PARA LIDAR COM DATAS DE FORMA SEGURA
+                dateFromString(dateString) {
+                    const [year, month, day] = dateString.split('-').map(Number);
+                    return new Date(year, month - 1, day);
+                },
+
+                saveConfig() {
+                    if (!this.tempConfig.horasSemanais || !this.tempConfig.horasDiarias || !this.tempConfig.diasTrabalhados) {
+                        alert('Por favor, preencha todos os campos de configuração.');
+                        return;
+                    }
+                    this.config = { ...this.tempConfig };
+                    localStorage.setItem(this.KEY_CONFIG, JSON.stringify(this.config));
+                    localStorage.setItem('appConfigured', 'true');
+                    this.showConfigModal = false;
+                    this.isInitialConfig = false;
+                },
+                loadConfig() {
+                    const savedConfig = localStorage.getItem(this.KEY_CONFIG);
+                    if (savedConfig) {
+                        this.config = JSON.parse(savedConfig);
+                        this.tempConfig = JSON.parse(savedConfig);
+                    }
+                },
+                
                 timeToMins(t) {
                     if (!t) return 0;
                     const [h, m] = t.split(':').map(Number);
@@ -139,140 +159,117 @@
                     return `${date.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
                 },
 
-                // Acesso aos Dados
                 loadData() {
                     this.registros = JSON.parse(localStorage.getItem(this.KEY_REGISTROS) || '[]');
                     this.resumos = JSON.parse(localStorage.getItem(this.KEY_RESUMOS) || '[]');
                 },
                 saveRegistros() {
-                    localStorage.setItem(this.KEY_REGISTROS, JSON.stringify(this.registros.sort((a, b) => new Date(a.data) - new Date(b.data))));
+                    // CORREÇÃO APLICADA AQUI
+                    const registrosOrdenados = this.registros.sort((a, b) => this.dateFromString(a.data) - this.dateFromString(b.data));
+                    localStorage.setItem(this.KEY_REGISTROS, JSON.stringify(registrosOrdenados));
                 },
                 saveResumos() {
                     localStorage.setItem(this.KEY_RESUMOS, JSON.stringify(this.resumos.sort((a, b) => b.id.localeCompare(a.id))));
                 },
 
-                // Lógica Principal
                 registrarPonto() {
-                    if (!this.data) {
-                        alert("Por favor, selecione uma data.");
-                        return;
-                    }
-                    if (this.registros.some(r => r.data === this.data)) {
-                        alert('Já existe um registro para esta data.');
-                        return;
-                    }
+                    if (!this.data) { alert("Por favor, selecione uma data."); return; }
+                    if (this.registros.some(r => r.data === this.data)) { alert('Já existe um registro para esta data.'); return; }
+                    
                     const inicioMin = this.timeToMins(this.inicio);
                     const saidaMin = this.timeToMins(this.saidaIntervalo);
                     const voltaMin = this.timeToMins(this.voltaIntervalo);
                     const fimMin = this.timeToMins(this.fim);
-                    if (fimMin <= inicioMin || voltaMin <= saidaMin) {
-                        alert("Os horários parecem estar incorretos.");
-                        return;
-                    }
+
+                    if (!this.inicio || !this.saidaIntervalo || !this.voltaIntervalo || !this.fim) { alert("Todos os campos de horário devem ser preenchidos para registrar o ponto."); return; }
+                    if (fimMin <= inicioMin || voltaMin <= saidaMin) { alert("Os horários parecem estar incorretos. Verifique a sequência."); return; }
+
                     const totalMins = (saidaMin - inicioMin) + (fimMin - voltaMin);
-                    const saldoMins = totalMins - this.JORNADA_CONTRATUAL_MINUTOS;
-                    this.registros.push({
-                        data: this.data,
-                        inicio: this.inicio,
-                        saidaIntervalo: this.saidaIntervalo,
-                        voltaIntervalo: this.voltaIntervalo,
-                        fim: this.fim,
-                        totalTrabalhado: this.minsToTime(totalMins),
-                        saldoDia: this.minsToTime(saldoMins),
-                        totalMinutosTrabalhados: totalMins,
-                        saldoDiaMinutos: saldoMins,
-                        finalizado: false,
-                        type: 'ponto'
-                    });
+                    const saldoMins = totalMins - this.jornadaContratualMinutos;
+                    this.registros.push({ data: this.data, inicio: this.inicio, saidaIntervalo: this.saidaIntervalo, voltaIntervalo: this.voltaIntervalo, fim: this.fim, totalTrabalhado: this.minsToTime(totalMins), saldoDia: this.minsToTime(saldoMins), totalMinutosTrabalhados: totalMins, saldoDiaMinutos: saldoMins, finalizado: false, type: 'ponto' });
                     this.saveRegistros();
                     alert('Ponto registrado com sucesso!');
                     this.resetForm();
                 },
                 registrarFalta() {
-                    if (!this.data) {
-                        alert("Por favor, selecione uma data para registrar a falta.");
-                        return;
-                    }
-                    if (this.registros.some(r => r.data === this.data)) {
-                        alert('Já existe um registro para esta data.');
-                        return;
-                    }
-                    const novoRegistro = {
-                        data: this.data,
-                        type: 'falta',
-                        totalMinutosTrabalhados: 0,
-                        saldoDiaMinutos: -this.JORNADA_CONTRATUAL_MINUTOS,
-                        totalTrabalhado: '00:00',
-                        saldoDia: this.minsToTime(-this.JORNADA_CONTRATUAL_MINUTOS),
-                        finalizado: false
-                    };
+                    if (!this.data) { alert("Por favor, selecione uma data para registrar a falta."); return; }
+                    if (this.registros.some(r => r.data === this.data)) { alert('Já existe um registro para esta data.'); return; }
+                    const novoRegistro = { data: this.data, type: 'falta', totalMinutosTrabalhados: 0, saldoDiaMinutos: -this.jornadaContratualMinutos, totalTrabalhado: '00:00', saldoDia: this.minsToTime(-this.jornadaContratualMinutos), finalizado: false };
                     this.registros.push(novoRegistro);
                     this.saveRegistros();
                     alert(`Falta registrada para ${this.formatDate(this.data)}. O saldo do dia é de ${novoRegistro.saldoDia}.`);
                     this.resetForm();
                 },
-                finalizarSemanasAnteriores() {
+                finalizarSemanasCompletas() {
                     const registrosAbertos = this.registros.filter(r => !r.finalizado);
-                    if (registrosAbertos.length === 0) {
-                        alert("Não há registros em aberto para finalizar.");
-                        return;
-                    }
-                    const weekIdAtual = this.getWeekId(new Date());
+                    if (registrosAbertos.length === 0) { alert("Não há registros em aberto para finalizar."); return; }
+                    
                     const semanasParaFinalizar = {};
+                    
+                    // Agrupa todos os registros abertos por semana
                     registrosAbertos.forEach(r => {
-                        const weekId = this.getWeekId(new Date(r.data + 'T00:00:00'));
-                        if (weekId !== weekIdAtual) {
-                            if (!semanasParaFinalizar[weekId]) semanasParaFinalizar[weekId] = [];
-                            semanasParaFinalizar[weekId].push(r);
-                        }
+                        const weekId = this.getWeekId(this.dateFromString(r.data));
+                        if (!semanasParaFinalizar[weekId]) semanasParaFinalizar[weekId] = [];
+                        semanasParaFinalizar[weekId].push(r);
                     });
+
                     const idsSemanas = Object.keys(semanasParaFinalizar);
-                    if (idsSemanas.length === 0) {
-                        alert("Nenhuma semana anterior completa para finalizar.");
-                        return;
+                    
+                    // Filtra apenas semanas que atingiram o número mínimo de dias trabalhados
+                    const semanasCompletas = idsSemanas.filter(id => 
+                        semanasParaFinalizar[id].length >= this.config.diasTrabalhados
+                    );
+                    
+                    if (semanasCompletas.length === 0) { 
+                        alert(`Nenhuma semana atingiu o mínimo de ${this.config.diasTrabalhados} dias trabalhados para ser finalizada.`); 
+                        return; 
                     }
-                    idsSemanas.forEach(id => {
+                    
+                    let semanasFinalizadasCount = 0;
+                    
+                    semanasCompletas.forEach(id => {
                         const registrosDaSemana = semanasParaFinalizar[id];
+                        semanasFinalizadasCount++;
+                        
                         const totalMinutos = registrosDaSemana.reduce((acc, r) => acc + r.totalMinutosTrabalhados, 0);
-                        const saldoSemanalMinutos = totalMinutos - this.META_SEMANAL_MINUTOS;
-                        const datas = registrosDaSemana.map(r => new Date(r.data)).sort((a, b) => a - b);
+                        const saldoSemanalMinutos = totalMinutos - this.metaSemanalMinutos;
+                        const datas = registrosDaSemana.map(r => this.dateFromString(r.data)).sort((a, b) => a - b);
+                        
+                        // Remove resumo existente se houver
                         const index = this.resumos.findIndex(res => res.id === id);
                         if (index > -1) this.resumos.splice(index, 1);
-                        this.resumos.push({
-                            id,
-                            periodo: `${this.formatDate(datas[0].toISOString().slice(0, 10))} - ${this.formatDate(datas[datas.length - 1].toISOString().slice(0, 10))}`,
-                            totalHoras: this.minsToTime(totalMinutos),
-                            saldoSemanalMinutos,
-                            registros: registrosDaSemana
+                        
+                        // Adiciona novo resumo
+                        this.resumos.push({ 
+                            id, 
+                            periodo: `${this.formatDate(datas[0].toISOString().slice(0, 10))} - ${this.formatDate(datas[datas.length - 1].toISOString().slice(0, 10))}`, 
+                            totalHoras: this.minsToTime(totalMinutos), 
+                            saldoSemanalMinutos, 
+                            registros: registrosDaSemana 
                         });
+                        
+                        // Marca registros como finalizados
                         this.registros.forEach(r => {
                             if (registrosDaSemana.some(reg => reg.data === r.data)) r.finalizado = true;
                         });
                     });
+                    
                     this.saveResumos();
                     this.saveRegistros();
-                    alert(`${idsSemanas.length} semana(s) finalizada(s) com sucesso!`);
+                    alert(`${semanasFinalizadasCount} semana(s) com ${this.config.diasTrabalhados} ou mais dias trabalhados finalizada(s) com sucesso!`);
                 },
                 exportarDados(formato) {
-                    if (this.registros.length === 0) {
-                        alert('Não há dados para exportar.');
-                        return;
-                    }
+                    if (this.registros.length === 0) { alert('Não há dados para exportar.'); return; }
                     let conteudo, mimeType, nomeArquivo;
                     const dataExportacao = new Date().toISOString().slice(0, 10);
                     if (formato === 'csv') {
                         const cabecalho = ['Data', 'Tipo', 'Inicio', 'Saida_Intervalo', 'Volta_Intervalo', 'Fim', 'Total_Trabalhado_HHMM', 'Saldo_Dia_HHMM', 'Finalizado'];
-                        const linhas = this.registros.map(r => {
-                            const linha = r.type === 'falta'
-                                ? [this.formatDate(r.data), r.type, '--', '--', '--', '--', r.totalTrabalhado, r.saldoDia, r.finalizado]
-                                : [this.formatDate(r.data), r.type, r.inicio, r.saidaIntervalo, r.voltaIntervalo, r.fim, r.totalTrabalhado, r.saldoDia, r.finalizado];
-                            return linha.join(',');
-                        }).join('\n');
+                        const linhas = this.registros.map(r => (r.type === 'falta' ? [this.formatDate(r.data), r.type, '--', '--', '--', '--', r.totalTrabalhado, r.saldoDia, r.finalizado] : [this.formatDate(r.data), r.type, r.inicio, r.saidaIntervalo, r.voltaIntervalo, r.fim, r.totalTrabalhado, r.saldoDia, r.finalizado]).join(',')).join('\n');
                         conteudo = [cabecalho.join(','), linhas].join('\n');
                         mimeType = 'text/csv;charset=utf-8;';
                         nomeArquivo = `relatorio_ponto_${dataExportacao}.csv`;
                     } else {
-                        conteudo = JSON.stringify({ resumos: this.resumos, registros: this.registros }, null, 2);
+                        conteudo = JSON.stringify({ config: this.config, resumos: this.resumos, registros: this.registros }, null, 2);
                         mimeType = 'application/json;charset=utf-8;';
                         nomeArquivo = `backup_ponto_${dataExportacao}.json`;
                     }
@@ -287,12 +284,13 @@
                     URL.revokeObjectURL(url);
                 },
                 limparDados() {
-                    if (confirm('Tem certeza que deseja apagar TODOS os registros e resumos?')) {
-                        localStorage.removeItem(this.KEY_REGISTROS);
-                        localStorage.removeItem(this.KEY_RESUMOS);
-                        this.registros = [];
-                        this.resumos = [];
-                        alert('Todos os dados foram apagados.');
+                    if (confirm('Tem certeza que deseja apagar TODOS os registros e resumos? Esta ação é irreversível.')) {
+                        if(confirm('Atenção: TODAS as suas configurações também serão apagadas. Deseja continuar?')) {
+                            localStorage.clear();
+                            this.registros = []; this.resumos = [];
+                            alert('Todos os dados foram apagados.');
+                            window.location.reload();
+                        }
                     }
                 },
                 resetForm() {
@@ -302,9 +300,7 @@
                     this.voltaIntervalo = '';
                     this.fim = '17:00';
                 },
-                getSaldoClass(saldoMinutos) {
-                    return saldoMinutos >= 0 ? 'text-success' : 'text-danger';
-                },
+                getSaldoClass(saldoMinutos) { return saldoMinutos >= 0 ? 'text-success' : 'text-danger'; },
                 getRowClass(r) {
                     if (r.type === 'falta') return { backgroundColor: this.isDarkTheme ? '#4b3b1a' : '#fff3cd', color: this.isDarkTheme ? '#fff' : '#664d03' };
                     return {};
@@ -314,54 +310,161 @@
                     this.$vuetify.theme.global.name = this.isDarkTheme ? 'dark' : 'light';
                     localStorage.setItem('theme', this.isDarkTheme ? 'dark' : 'light');
                 },
+                copyPixToClipboard() {
+                    navigator.clipboard.writeText(this.pixEmail).then(() => {
+                        alert('PIX copiado para a área de transferência! 📋✨');
+                    }).catch(() => {
+                        // Fallback para navegadores mais antigos
+                        const textArea = document.createElement('textarea');
+                        textArea.value = this.pixEmail;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        alert('PIX copiado para a área de transferência! 📋✨');
+                    });
+                },
             },
             mounted() {
                 this.loadData();
                 this.$vuetify.theme.global.name = this.isDarkTheme ? 'dark' : 'light';
+                this.loadConfig();
+                const isConfigured = localStorage.getItem('appConfigured');
+                if (!isConfigured) {
+                    this.isInitialConfig = true;
+                    this.showConfigModal = true;
+                }
             },
             template: `
                 <v-app>
-                    <v-main class="bg-background">
-                        <v-container class="pa-8" style="max-width: 800px;">
-                            <v-card elevation="4" class="pa-6">
-                                <v-row align="center" justify="space-between" class="mb-2">
-                                    <h1 class="text-center text-primary flex-grow-1">Controle de Ponto</h1>
-                                    <v-btn :icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-moon-waxing-crescent'" @click="toggleTheme" class="ml-2"></v-btn>
-                                </v-row>
-                                <v-row class="mb-6">
-                                    <v-col cols="12" md="6">
-                                        <v-card variant="outlined" class="pa-4 text-center">
-                                            <h2 class="text-h6">Saldo do Banco de Horas</h2>
-                                            <span class="text-h3 font-weight-bold" :class="saldoTotalClass">{{ saldoTotal }}</span>
-                                        </v-card>
-                                    </v-col>
-                                    <v-col cols="12" md="6">
-                                        <v-card variant="outlined" class="pa-4 text-center">
-                                            <h2 class="text-h6">Horas na Semana (Atual)</h2>
-                                            <span class="text-h3 font-weight-bold text-primary">{{ horasNaSemana }}</span>
-                                            <span class="text-body-1 text-neutral"> / 44:00</span>
-                                        </v-card>
-                                    </v-col>
-                                </v-row>
-                                <v-form @submit.prevent="registrarPonto">
+                    <v-dialog v-model="showConfigModal" persistent max-width="600px">
+                        <v-card>
+                            <v-card-title><span class="text-h5">{{ isInitialConfig ? 'Configuração Inicial' : 'Alterar Configurações' }}</span></v-card-title>
+                            <v-card-text>
+                                <v-container>
+                                    <p class="mb-4" v-if="isInitialConfig">Antes de começar, configure seus horários de trabalho:</p>
+                                    
+                                    <v-alert type="info" variant="tonal" class="mb-4">
+                                        <div class="text-body-2">
+                                            <strong>Como configurar:</strong><br>
+                                            • <strong>Horas Semanais:</strong> Total de horas que você deve trabalhar na semana (ex: 44h)<br>
+                                            • <strong>Jornada Diária:</strong> Quantas horas você trabalha por dia (ex: 8:48 para 8h48min)<br>
+                                            • <strong>Dias por Semana:</strong> Quantos dias você trabalha (ex: 5 para seg-sex)
+                                        </div>
+                                    </v-alert>
+                                    
                                     <v-row>
                                         <v-col cols="12">
-                                            <v-text-field v-model="data" label="Data para Registro" type="date" required></v-text-field>
+                                            <v-text-field 
+                                                label="Meta de Horas Semanais" 
+                                                v-model.number="tempConfig.horasSemanais" 
+                                                type="number" 
+                                                required 
+                                                suffix="horas"
+                                                hint="Ex: 44 (para 44 horas semanais)"
+                                                persistent-hint>
+                                            </v-text-field>
+                                        </v-col>
+                                        <v-col cols="12" sm="6">
+                                            <v-text-field 
+                                                label="Jornada Diária de Trabalho" 
+                                                v-model="tempConfig.horasDiarias" 
+                                                type="time" 
+                                                required
+                                                hint="Ex: 08:48 (8 horas e 48 minutos)"
+                                                persistent-hint>
+                                            </v-text-field>
+                                        </v-col>
+                                        <v-col cols="12" sm="6">
+                                            <v-select 
+                                                label="Dias Trabalhados por Semana" 
+                                                v-model.number="tempConfig.diasTrabalhados" 
+                                                :items="[1, 2, 3, 4, 5, 6, 7]" 
+                                                required
+                                                hint="Ex: 5 (segunda a sexta-feira)"
+                                                persistent-hint>
+                                            </v-select>
                                         </v-col>
                                     </v-row>
+                                </v-container>
+                            </v-card-text>
+                            <v-card-actions>
+                                <v-spacer></v-spacer>
+                                <v-btn color="primary" variant="text" @click="saveConfig">{{ isInitialConfig ? 'Salvar e Começar' : 'Salvar Alterações' }}</v-btn>
+                            </v-card-actions>
+                        </v-card>
+                    </v-dialog>
+
+                    <!-- Modal de Doação -->
+                    <v-dialog v-model="showDonationModal" max-width="500px">
+                        <v-card class="pa-4">
+                            <v-card-title class="text-center">
+                                <v-icon color="red" size="large" class="mr-2">mdi-heart</v-icon>
+                                <span class="text-h5">Apoie o Desenvolvedor</span>
+                            </v-card-title>
+                            <v-card-text class="text-center">
+                                <p class="mb-4">
+                                    Gostou da aplicação? ❤️<br>
+                                    Sua doação ajuda a manter este projeto gratuito e em constante melhoria!
+                                </p>
+                                <v-divider class="my-4"></v-divider>
+                                <p class="text-h6 mb-2">Escaneie o QR Code PIX:</p>
+                                <div class="text-center mb-3">
+                                    <img 
+                                        src="https://i.imgur.com/rW2Y60H.jpeg"
+                                        alt="QR Code PIX"
+                                        style="width: 200px; height: 200px; border: 2px solid #ddd; border-radius: 8px; display: block; margin: 0 auto;">
+                                </div>
+                                <p class="text-caption mb-2 text-neutral">
+                                    📱 Abra seu app bancário e escaneie o código acima
+                                </p>
+                                <v-divider class="my-3"></v-divider>
+                                <p class="text-body-2 mb-2">Ou copie a chave PIX:</p>
+                                <v-chip 
+                                    color="primary" 
+                                    size="large" 
+                                    class="ma-2 pa-4" 
+                                    @click="copyPixToClipboard"
+                                    variant="elevated">
+                                    <v-icon left>mdi-email</v-icon>
+                                    {{ pixEmail }}
+                                    <v-icon right>mdi-content-copy</v-icon>
+                                </v-chip>
+                                <p class="text-caption mt-2 text-neutral">
+                                    Clique na chave PIX acima para copiar automaticamente 📋
+                                </p>
+                                <p class="text-body-2 mt-4">
+                                    Qualquer valor é muito apreciado! 🙏<br>
+                                    <small>Desenvolvido com ❤️ para facilitar seu controle de ponto</small>
+                                </p>
+                            </v-card-text>
+                            <v-card-actions class="justify-center">
+                                <v-btn color="primary" @click="showDonationModal = false">Fechar</v-btn>
+                            </v-card-actions>
+                        </v-card>
+                    </v-dialog>
+
+                    <v-main class="bg-background">
+                        <v-container class="pa-4 pa-md-8" style="max-width: 900px;">
+                            <v-card elevation="4" class="pa-4 pa-md-6">
+                                <v-row align="center" justify="space-between" class="mb-2">
+                                    <h1 class="text-center text-primary flex-grow-1">Controle de Ponto</h1>
+                                    <div>
+                                        <v-btn :icon="'mdi-cog'" @click="showConfigModal = true" variant="text"></v-btn>
+                                        <v-btn :icon="isDarkTheme ? 'mdi-white-balance-sunny' : 'mdi-moon-waxing-crescent'" @click="toggleTheme" variant="text"></v-btn>
+                                    </div>
+                                </v-row>
+                                <v-row class="mb-6">
+                                    <v-col cols="12" md="6"><v-card variant="outlined" class="pa-4 text-center fill-height"><h2 class="text-h6">Saldo do Banco de Horas</h2><span class="text-h3 font-weight-bold" :class="saldoTotalClass">{{ saldoTotal }}</span></v-card></v-col>
+                                    <v-col cols="12" md="6"><v-card variant="outlined" class="pa-4 text-center fill-height"><h2 class="text-h6">Horas na Semana (Atual)</h2><span class="text-h3 font-weight-bold text-primary">{{ horasNaSemana }}</span><span class="text-body-1 text-neutral"> / {{ metaSemanalFormatada }}</span></v-card></v-col>
+                                </v-row>
+                                <v-form @submit.prevent="registrarPonto">
+                                    <v-row><v-col cols="12"><v-text-field v-model="data" label="Data para Registro" type="date" required></v-text-field></v-col></v-row>
                                     <v-row>
-                                        <v-col cols="12" sm="6" md="3">
-                                            <v-text-field v-model="inicio" label="Início Expediente" type="time" required></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" sm="6" md="3">
-                                            <v-text-field v-model="saidaIntervalo" label="Saída Intervalo" type="time" required></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" sm="6" md="3">
-                                            <v-text-field v-model="voltaIntervalo" label="Volta Intervalo" type="time" required></v-text-field>
-                                        </v-col>
-                                        <v-col cols="12" sm="6" md="3">
-                                            <v-text-field v-model="fim" label="Fim Expediente" type="time" required></v-text-field>
-                                        </v-col>
+                                        <v-col cols="12" sm="6" md="3"><v-text-field v-model="inicio" label="Início" type="time"></v-text-field></v-col>
+                                        <v-col cols="12" sm="6" md="3"><v-text-field v-model="saidaIntervalo" label="Saída Int." type="time"></v-text-field></v-col>
+                                        <v-col cols="12" sm="6" md="3"><v-text-field v-model="voltaIntervalo" label="Volta Int." type="time"></v-text-field></v-col>
+                                        <v-col cols="12" sm="6" md="3"><v-text-field v-model="fim" label="Fim" type="time"></v-text-field></v-col>
                                     </v-row>
                                     <v-row justify="center" class="mt-4">
                                         <v-btn type="submit" color="primary" class="ma-3 ma-md-0 mr-md-2">Registrar Ponto</v-btn>
@@ -369,82 +472,59 @@
                                     </v-row>
                                 </v-form>
                                 <v-divider class="my-6"></v-divider>
-                                <v-row justify="center" v-if="resumos.length > 0 || registrosAbertos.length > 0">
-                                    <v-btn color="finalize" class="ma-3 ma-md-0 mr-md-2" @click="finalizarSemanasAnteriores">Finalizar Semana</v-btn>
+                                <v-row justify="center" v-if="registros.length > 0">
+                                    <v-btn color="finalize" class="ma-3 ma-md-0 mr-md-2" @click="finalizarSemanasCompletas" :disabled="isFinalizarSemanaDisabled">Finalizar Semana</v-btn>
                                     <v-btn color="export" class="ma-3 ma-md-0 mr-md-2" @click="exportarDados('csv')">Exportar CSV</v-btn>
                                     <v-btn color="danger" class="ma-3 ma-md-0" @click="limparDados">Limpar Todos os Dados</v-btn>
                                 </v-row>
                                 <div v-if="resumos.length > 0" class="mt-6">
-                                    <h2 class="text-h5 text-center">Resumos Semanais</h2>
+                                    <h2 class="text-h5 text-center mb-2">Resumos Semanais Finalizados</h2>
                                     <v-expansion-panels>
                                         <v-expansion-panel v-for="resumo in resumos" :key="resumo.id">
                                             <v-expansion-panel-title>
-                                                <v-row align="center" justify="space-between">
-                                                    <span class="text-body-1 font-weight-bold text-primary">Semana: {{ resumo.periodo }}</span>
-                                                    <span class="text-body-1 font-weight-bold">Total: {{ resumo.totalHoras }}</span>
-                                                    <span class="text-body-1 font-weight-bold mx-2" :class="getSaldoClass(resumo.saldoSemanalMinutos)">Saldo: {{ minsToTime(resumo.saldoSemanalMinutos) }}</span>
-                                                </v-row>
+                                                 <v-row align="center" justify="space-between" no-gutters><v-col cols="12" sm="4" class="font-weight-bold text-primary">Semana: {{ resumo.periodo }}</v-col><v-col cols="6" sm="4" class="text-center">Total: {{ resumo.totalHoras }}</v-col><v-col cols="6" sm="4" class="text-right font-weight-bold" :class="getSaldoClass(resumo.saldoSemanalMinutos)">Saldo: {{ minsToTime(resumo.saldoSemanalMinutos) }}</v-col></v-row>
                                             </v-expansion-panel-title>
                                             <v-expansion-panel-text>
-                                                <v-table>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Data</th>
-                                                            <th>Início</th>
-                                                            <th>Saída Int.</th>
-                                                            <th>Volta Int.</th>
-                                                            <th>Fim</th>
-                                                            <th>Total Trabalhado</th>
-                                                            <th>Saldo Dia</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr v-for="r in resumo.registros" :key="r.data" :style="getRowClass(r)">
-                                                            <td v-if="r.type === 'falta'" colspan="7" class="text-center">AUSÊNCIA REGISTRADA - {{ formatDate(r.data) }} - Total: {{ r.totalTrabalhado }} - Saldo: <strong :class="getSaldoClass(r.saldoDiaMinutos)">{{ r.saldoDia }}</strong></td>
-                                                            <td v-else>{{ formatDate(r.data) }}</td>
-                                                            <td v-if="r.type !== 'falta'">{{ r.inicio }}</td>
-                                                            <td v-if="r.type !== 'falta'">{{ r.saidaIntervalo }}</td>
-                                                            <td v-if="r.type !== 'falta'">{{ r.voltaIntervalo }}</td>
-                                                            <td v-if="r.type !== 'falta'">{{ r.fim }}</td>
-                                                            <td v-if="r.type !== 'falta'">{{ r.totalTrabalhado }}</td>
-                                                            <td v-if="r.type !== 'falta'" :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td>
-                                                        </tr>
-                                                    </tbody>
+                                                <v-table density="compact"><thead><tr><th>Data</th><th>Início</th><th>Saída Int.</th><th>Volta Int.</th><th>Fim</th><th>Total</th><th>Saldo</th></tr></thead>
+                                                    <tbody><tr v-for="r in resumo.registros" :key="r.data" :style="getRowClass(r)"><template v-if="r.type === 'falta'"><td>{{ formatDate(r.data) }}</td><td colspan="4" class="text-center font-weight-medium">AUSÊNCIA REGISTRADA</td><td>{{ r.totalTrabalhado }}</td><td :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td></template><template v-else><td>{{ formatDate(r.data) }}</td><td>{{ r.inicio }}</td><td>{{ r.saidaIntervalo }}</td><td>{{ r.voltaIntervalo }}</td><td>{{ r.fim }}</td><td>{{ r.totalTrabalhado }}</td><td :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td></template></tr></tbody>
                                                 </v-table>
                                             </v-expansion-panel-text>
                                         </v-expansion-panel>
                                     </v-expansion-panels>
                                 </div>
                                 <div v-if="registrosAbertos.length > 0" class="mt-6">
-                                    <h2 class="text-h5 text-center">Registros da Semana Atual</h2>
+                                    <h2 class="text-h5 text-center mb-2">Registros em Aberto</h2>
                                     <v-table>
-                                        <thead>
-                                            <tr>
-                                                <th>Data</th>
-                                                <th>Início</th>
-                                                <th>Saída Int.</th>
-                                                <th>Volta Int.</th>
-                                                <th>Fim</th>
-                                                <th>Total Trabalhado</th>
-                                                <th>Saldo Dia</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="r in registrosAbertos" :key="r.data" :style="getRowClass(r)">
-                                                <td v-if="r.type === 'falta'" colspan="7" class="text-center">AUSÊNCIA REGISTRADA - {{ formatDate(r.data) }} - Total: {{ r.totalTrabalhado }} - Saldo: <strong :class="getSaldoClass(r.saldoDiaMinutos)">{{ r.saldoDia }}</strong></td>
-                                                <td v-else>{{ formatDate(r.data) }}</td>
-                                                <td v-if="r.type !== 'falta'">{{ r.inicio }}</td>
-                                                <td v-if="r.type !== 'falta'">{{ r.saidaIntervalo }}</td>
-                                                <td v-if="r.type !== 'falta'">{{ r.voltaIntervalo }}</td>
-                                                <td v-if="r.type !== 'falta'">{{ r.fim }}</td>
-                                                <td v-if="r.type !== 'falta'">{{ r.totalTrabalhado }}</td>
-                                                <td v-if="r.type !== 'falta'" :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td>
-                                            </tr>
-                                        </tbody>
+                                        <thead><tr><th>Data</th><th>Início</th><th>Saída Int.</th><th>Volta Int.</th><th>Fim</th><th>Total</th><th>Saldo</th></tr></thead>
+                                        <tbody><tr v-for="r in registrosAbertos" :key="r.data" :style="getRowClass(r)"><template v-if="r.type === 'falta'"><td>{{ formatDate(r.data) }}</td><td colspan="4" class="text-center font-weight-medium">AUSÊNCIA REGISTRADA</td><td>{{ r.totalTrabalhado }}</td><td :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td></template><template v-else><td>{{ formatDate(r.data) }}</td><td>{{ r.inicio }}</td><td>{{ r.saidaIntervalo }}</td><td>{{ r.voltaIntervalo }}</td><td>{{ r.fim }}</td><td>{{ r.totalTrabalhado }}</td><td :class="getSaldoClass(r.saldoDiaMinutos)"><strong>{{ r.saldoDia }}</strong></td></template></tr></tbody>
                                     </v-table>
                                 </div>
                             </v-card>
                         </v-container>
+                        
+                        <!-- Rodapé -->
+                        <v-footer class="bg-surface mt-8 pa-4">
+                            <v-row justify="center" align="center">
+                                <!-- <v-col cols="auto">
+                                    <v-btn 
+                                        @click="showDonationModal = false" 
+                                        color="primary" 
+                                        variant="text"
+                                        class="text-capitalize">
+                                        <v-icon left color="red">mdi-heart</v-icon>
+                                        Apoie o Desenvolvedor
+                                        <v-icon right>mdi-coffee</v-icon>
+                                    </v-btn>
+                                </v-col> -->
+                            </v-row>
+                            <v-row justify="center" class="mt-2">
+                                <v-col cols="auto">
+                                    <p class="text-caption text-neutral text-center mb-0">
+                                        Desenvolvido com ❤️ • Versão 2.0 • © 2025
+                                    </p>
+                                </v-col>
+                            </v-row>
+                        </v-footer>
                     </v-main>
                 </v-app>
             `

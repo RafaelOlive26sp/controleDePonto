@@ -411,7 +411,7 @@
                                 <p class="text-h6 mb-2">Escaneie o QR Code PIX:</p>
                                 <div class="text-center mb-3">
                                     <img 
-                                        src="https://i.imgur.com/rW2Y60H.jpeg"
+                                        src="https://i.postimg.cc/bwPscvJr/Whats-App-Image-2025-09-19-at-01-29-47.jpg"
                                         alt="QR Code PIX"
                                         style="width: 200px; height: 200px; border: 2px solid #ddd; border-radius: 8px; display: block; margin: 0 auto;">
                                 </div>
@@ -419,20 +419,6 @@
                                     📱 Abra seu app bancário e escaneie o código acima
                                 </p>
                                 <v-divider class="my-3"></v-divider>
-                                <p class="text-body-2 mb-2">Ou copie a chave PIX:</p>
-                                <v-chip 
-                                    color="primary" 
-                                    size="large" 
-                                    class="ma-2 pa-4" 
-                                    @click="copyPixToClipboard"
-                                    variant="elevated">
-                                    <v-icon left>mdi-email</v-icon>
-                                    {{ pixEmail }}
-                                    <v-icon right>mdi-content-copy</v-icon>
-                                </v-chip>
-                                <p class="text-caption mt-2 text-neutral">
-                                    Clique na chave PIX acima para copiar automaticamente 📋
-                                </p>
                                 <p class="text-body-2 mt-4">
                                     Qualquer valor é muito apreciado! 🙏<br>
                                     <small>Desenvolvido com ❤️ para facilitar seu controle de ponto</small>
@@ -505,9 +491,9 @@
                         <!-- Rodapé -->
                         <v-footer class="bg-surface mt-8 pa-4">
                             <v-row justify="center" align="center">
-                                <!-- <v-col cols="auto">
+                                <v-col cols="auto">
                                     <v-btn 
-                                        @click="showDonationModal = false" 
+                                        @click="showDonationModal = true" 
                                         color="primary" 
                                         variant="text"
                                         class="text-capitalize">
@@ -515,7 +501,7 @@
                                         Apoie o Desenvolvedor
                                         <v-icon right>mdi-coffee</v-icon>
                                     </v-btn>
-                                </v-col> -->
+                                </v-col> 
                             </v-row>
                             <v-row justify="center" class="mt-2">
                                 <v-col cols="auto">

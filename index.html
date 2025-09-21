@@ -49,6 +49,7 @@
                     registros: [],
                     resumos: [],
                     pixCode: '00020101021126910014br.gov.bcb.pix013677fc6068-5b7f-4b0f-872a-6b3dc29797f10229Muito obrigado por me apoiar.52040000530398654045.005802BR5916RAFAEL O DELGADO6009SAO PAULO62070503***63048C9F',
+                    contactEmail: 'oliveirarafael22@outlook.com.br',
                 };
             },
             computed: {
@@ -324,6 +325,20 @@
                         alert('Código PIX copiado para a área de transferência! 📋✨');
                     });
                 },
+                copyEmailToClipboard() {
+                    navigator.clipboard.writeText(this.contactEmail).then(() => {
+                        alert('Email copiado para a área de transferência! 📧✨');
+                    }).catch(() => {
+                        // Fallback para navegadores mais antigos
+                        const textArea = document.createElement('textarea');
+                        textArea.value = this.contactEmail;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        alert('Email copiado para a área de transferência! 📧✨');
+                    });
+                },
             },
             mounted() {
                 this.loadData();
@@ -436,6 +451,25 @@
                                 <p class="text-body-2 mt-4">
                                     Qualquer valor é muito apreciado! 🙏<br>
                                     <small>Desenvolvido com ❤️ para facilitar seu controle de ponto</small>
+                                </p>
+                                <v-divider class="my-4"></v-divider>
+                                <p class="text-h6 mb-2">💬 Sugestões e Contato</p>
+                                <p class="text-body-2 mb-2">
+                                    Tem alguma sugestão de melhoria ou encontrou algum problema?<br>
+                                    Entre em contato comigo:
+                                </p>
+                                <v-chip 
+                                    color="secondary" 
+                                    size="large" 
+                                    class="ma-2 pa-4" 
+                                    @click="copyEmailToClipboard"
+                                    variant="elevated">
+                                    <v-icon left>mdi-email-outline</v-icon>
+                                    {{ contactEmail }}
+                                    <v-icon right>mdi-content-copy</v-icon>
+                                </v-chip>
+                                <p class="text-caption mt-2 text-neutral">
+                                    📧 Clique no email acima para copiar e enviar sua mensagem
                                 </p>
                             </v-card-text>
                             <v-card-actions class="justify-center">

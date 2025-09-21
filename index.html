@@ -48,7 +48,7 @@
                     fim: '17:00',
                     registros: [],
                     resumos: [],
-                    pixEmail: 'muhellserver@hotmail.com',
+                    pixCode: '00020101021126910014br.gov.bcb.pix013677fc6068-5b7f-4b0f-872a-6b3dc29797f10229Muito obrigado por me apoiar.52040000530398654045.005802BR5916RAFAEL O DELGADO6009SAO PAULO62070503***63048C9F',
                 };
             },
             computed: {
@@ -311,17 +311,17 @@
                     localStorage.setItem('theme', this.isDarkTheme ? 'dark' : 'light');
                 },
                 copyPixToClipboard() {
-                    navigator.clipboard.writeText(this.pixEmail).then(() => {
-                        alert('PIX copiado para a área de transferência! 📋✨');
+                    navigator.clipboard.writeText(this.pixCode).then(() => {
+                        alert('Código PIX copiado para a área de transferência! 📋✨');
                     }).catch(() => {
                         // Fallback para navegadores mais antigos
                         const textArea = document.createElement('textarea');
-                        textArea.value = this.pixEmail;
+                        textArea.value = this.pixCode;
                         document.body.appendChild(textArea);
                         textArea.select();
                         document.execCommand('copy');
                         document.body.removeChild(textArea);
-                        alert('PIX copiado para a área de transferência! 📋✨');
+                        alert('Código PIX copiado para a área de transferência! 📋✨');
                     });
                 },
             },
@@ -419,6 +419,20 @@
                                     📱 Abra seu app bancário e escaneie o código acima
                                 </p>
                                 <v-divider class="my-3"></v-divider>
+                                <p class="text-body-2 mb-2">Ou copie o código PIX Copia e Cola:</p>
+                                <v-chip 
+                                    color="primary" 
+                                    size="large" 
+                                    class="ma-2 pa-4" 
+                                    @click="copyPixToClipboard"
+                                    variant="elevated">
+                                    <v-icon left>mdi-qrcode</v-icon>
+                                    PIX Copia e Cola
+                                    <v-icon right>mdi-content-copy</v-icon>
+                                </v-chip>
+                                <p class="text-caption mt-2 text-neutral">
+                                    Clique no código PIX acima para copiar automaticamente 📋
+                                </p>
                                 <p class="text-body-2 mt-4">
                                     Qualquer valor é muito apreciado! 🙏<br>
                                     <small>Desenvolvido com ❤️ para facilitar seu controle de ponto</small>
